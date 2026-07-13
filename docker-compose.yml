@@ -1,0 +1,110 @@
+x-kafka-env: &kafka-env
+  KAFKA_BROKER_URL: ${KAFKA_BROKER_URL:-kafka:9092}
+  KAFKA_TOPIC: ${KAFKA_TOPIC:-transactions}
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.7.1
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: confluentinc/cp-kafka:7.7.1
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  transactions-historical:
+    build:
+      context: .
+      dockerfile: services/transactions-historical/Dockerfile
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      <<: *kafka-env
+      ETHERSCAN_CONTRACT_ADDRESS: ${ETHERSCAN_CONTRACT_ADDRESS:-0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640}
+      ETHERSCAN_HISTORICAL_FIRST_BLOCK: ${ETHERSCAN_HISTORICAL_FIRST_BLOCK:-18000000}
+      ETHERSCAN_HISTORICAL_LAST_BLOCK: ${ETHERSCAN_HISTORICAL_LAST_BLOCK:-18001000}
+      ETHERSCAN_HISTORICAL_BATCH_SIZE: ${ETHERSCAN_HISTORICAL_BATCH_SIZE:-100}
+      ETHERSCAN_API_KEY: ${ETHERSCAN_API_KEY:-}
+
+  transactions-realtime:
+    build:
+      context: .
+      dockerfile: services/transactions-realtime/Dockerfile
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      <<: *kafka-env
+      ETHERSCAN_CONTRACT_ADDRESS: ${ETHERSCAN_CONTRACT_ADDRESS:-0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640}
+      INFURA_POLL_INTERVAL: ${INFURA_POLL_INTERVAL:-15}
+      INFURA_PROJECT_ID: ${INFURA_PROJECT_ID:-}
+
+  message-consumer:
+    build:
+      context: .
+      dockerfile: services/message-consumer/Dockerfile
+    depends_on:
+      kafka:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+    environment:
+      <<: *kafka-env
+      KAFKA_GROUP_ID: ${KAFKA_GROUP_ID:-message-consumer}
+      MONGODB_URL: ${MONGODB_URL:-mongodb://mongo:27017/eth_tx_pipeline}
+
+  endpoint-server:
+    build:
+      context: .
+      dockerfile: services/endpoint-server/Dockerfile
+    depends_on:
+      mongo:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    environment:
+      MONGODB_URL: ${MONGODB_URL:-mongodb://mongo:27017/eth_tx_pipeline}
+
+  db-indexing-sidecar:
+    build:
+      context: .
+      dockerfile: services/db-indexing-sidecar/Dockerfile
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: "no"
+    environment:
+      MONGODB_URL: ${MONGODB_URL:-mongodb://mongo:27017/eth_tx_pipeline}
+
+volumes:
+  mongo-data:
