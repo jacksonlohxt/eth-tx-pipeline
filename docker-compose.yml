@@ -82,6 +82,7 @@ services:
       <<: *kafka-env
       KAFKA_GROUP_ID: ${KAFKA_GROUP_ID:-message-consumer}
       MONGODB_URL: ${MONGODB_URL:-mongodb://mongo:27017/eth_tx_pipeline}
+      ETH_USD_EXCHANGE_RATE: ${ETH_USD_EXCHANGE_RATE:-3000.0}
 
   endpoint-server:
     build:

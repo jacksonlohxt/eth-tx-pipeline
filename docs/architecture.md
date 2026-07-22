@@ -54,11 +54,15 @@ Kafka topic and message shape as transactions-historical, with
 ### message-consumer
 Consumes `TransactionMessage`s from `KAFKA_TOPIC` under consumer group
 `KAFKA_GROUP_ID`, computes `fee_eth = gas_price_wei * gas_used / 1e18` and
-`fee_usd = fee_eth * eth_usd_exchange_rate` (rate fetched from an external
-exchange-rate source), and upserts the result into MongoDB. **Input:**
-Kafka. **Output:** one `EnrichedTransaction` document per transaction in
-the `transactions` collection, keyed by `_id = tx_hash` for idempotent
-replay.
+`fee_usd = fee_eth * eth_usd_exchange_rate`, and upserts the result into
+MongoDB. The rate is currently a fixed, environment-configurable
+`ETH_USD_EXCHANGE_RATE` (default `3000.0`) so enrichment is deterministic
+and needs no external credential. A future live or historical rate provider
+can replace this configuration at the enrichment boundary while preserving
+the rate captured in each document. **Input:** Kafka. **Output:** one
+`EnrichedTransaction` document per transaction in the `transactions`
+collection, keyed by `_id = tx_hash` for idempotent replay. Kafka offsets
+are committed only after a successful MongoDB upsert.
 
 ### db-indexing-sidecar
 Connects to MongoDB, ensures the indexes the API's query patterns depend
