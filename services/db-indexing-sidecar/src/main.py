@@ -33,6 +33,8 @@ def index_specs() -> list[tuple[str, int]]:
         ("block_number", ASCENDING),
         ("contract_address", ASCENDING),
         ("block_timestamp", ASCENDING),
+        ("from_address", ASCENDING),
+        ("to_address", ASCENDING),
     ]
 
 

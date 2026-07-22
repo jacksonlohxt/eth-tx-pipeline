@@ -24,9 +24,10 @@ message and MongoDB document shapes.
 
 This repository contains the monorepo foundation, infra wiring, contracts,
 and CI. `message-consumer` implements Kafka consumption, fee enrichment,
-and idempotent MongoDB upserts, while `db-indexing-sidecar` creates the
-required indexes. The producer services and API data endpoints remain
-scaffold stubs for later increments.
+and idempotent MongoDB upserts. `endpoint-server` reads those documents
+with filter and pagination support, while `db-indexing-sidecar` creates the
+required indexes. The producer services remain scaffold stubs for later
+increments.
 
 ## Repository layout
 
@@ -62,7 +63,8 @@ docker compose up
 This brings up Zookeeper, Kafka, MongoDB, and all five services.
 `db-indexing-sidecar` runs its indexing job and exits `0` by design; every
 other service stays up. `endpoint-server` is reachable at
-`http://localhost:8000` (`/health`, `/docs`).
+`http://localhost:8000` (`/health`, `/transactions`, `/docs`). See the
+OpenAPI docs for the transaction filter and pagination parameters.
 
 ## Running tests
 
