@@ -22,13 +22,14 @@ message and MongoDB document shapes.
 
 ## Status
 
-This repository contains the monorepo foundation, infra wiring, contracts,
-and CI. `transactions-historical` publishes Etherscan backfills (or a bundled
-credential-free fixture) to Kafka. `message-consumer` implements Kafka
-consumption, fee enrichment, and idempotent MongoDB upserts. `endpoint-server`
-reads those documents with filter and pagination support, while
-`db-indexing-sidecar` creates the required indexes. The realtime producer
-remains a scaffold stub.
+All five services are fully implemented. `transactions-historical` fetches
+Etherscan backfills (or a bundled credential-free fixture) and publishes to
+Kafka. `transactions-realtime` subscribes to new transactions via Infura
+websocket (with polling fallback) and publishes the same stream.
+`message-consumer` consumes both streams, enriches each transaction with
+fee calculations, and upserts to MongoDB. `endpoint-server` serves the
+enriched data via a REST API with filtering and pagination.
+`db-indexing-sidecar` creates the required database indexes on startup.
 
 ## Repository layout
 
@@ -76,6 +77,14 @@ docs for the transaction filter and pagination parameters.
 Kafka is reachable from the host on `localhost:29092` (its `EXTERNAL` listener)
 for ad-hoc tooling; in-network services keep using `kafka:9092` directly over
 the Compose network.
+
+### Development-only: no authentication
+
+This stack runs with **no authentication** anywhere. `endpoint-server` has no
+auth, Kafka uses `PLAINTEXT` transport, and MongoDB runs without credentials.
+This is appropriate for local development but **must not be exposed publicly**
+in this configuration. Before any internet-facing deployment, add TLS, API
+authentication, Kafka SASL/SSL, and MongoDB authentication.
 
 ### End-to-end smoke test
 
