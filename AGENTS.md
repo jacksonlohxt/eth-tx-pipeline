@@ -7,7 +7,7 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - Every service in `services/*/` depends on `shared/eth_tx_shared` for the schema (`pip install -e shared/` before installing a service's own `requirements.txt`). Docker builds use repo root as build context (`docker-compose.yml` sets `context: .`, `dockerfile: services/<name>/Dockerfile`) so each Dockerfile can `COPY shared /app/shared`.
 - Test/lint a single service: `cd services/<name> && pip install -r ../../requirements-dev.txt && pip install -e ../../shared && pip install -r requirements.txt && pytest`. Lint everything with `ruff check services shared` from the repo root (ruff config is in the root `pyproject.toml`).
 - This scaffold was built in an environment without Docker installed, so `docker-compose.yml` was validated by parsing it as YAML only - it has never had a live `docker compose up` run against it. Treat the first real `docker compose up` in this project as unverified until someone actually does it.
-- `message-consumer` and `db-indexing-sidecar` are implemented. The producer services and endpoint-server data API remain intentional stubs for later increments; see `README.md` for current status.
+- `message-consumer`, `endpoint-server`, and `db-indexing-sidecar` are implemented. The producer services remain intentional stubs for later increments; see `README.md` for current status.
 
 ## Maintaining this file
 

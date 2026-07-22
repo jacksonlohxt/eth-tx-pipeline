@@ -66,16 +66,21 @@ are committed only after a successful MongoDB upsert.
 
 ### db-indexing-sidecar
 Connects to MongoDB, ensures the indexes the API's query patterns depend
-on exist (`block_number`, `contract_address`, `block_timestamp`), then
-exits `0`. Runs once per `docker compose up` before other consumers rely
+on exist (`block_number`, `contract_address`, `block_timestamp`,
+`from_address`, `to_address`), then exits `0`. Runs once per
+`docker compose up` before other consumers rely
 on the collection being queryable at speed. **Input:** none. **Output:**
 MongoDB indexes (side effect only).
 
 ### endpoint-server
-A FastAPI REST API that reads the `transactions` collection and exposes it
-to clients (e.g. filter by address, block range, or time window). In this
-scaffold it exposes only `/health` and the auto-generated `/docs` page.
-**Input:** MongoDB. **Output:** JSON HTTP responses.
+A FastAPI REST API that reads the `transactions` collection. `GET
+/transactions` filters by exact sender or recipient `address`, inclusive
+`block_number_from` / `block_number_to`, and inclusive Unix-second
+`timestamp_from` / `timestamp_to`. Results use offset/limit pagination
+(default limit 50, maximum 100), are ordered by block number and transaction
+hash, and include the total matching document count. `/health` and the
+auto-generated `/docs` page are also available. **Input:** MongoDB.
+**Output:** JSON HTTP responses.
 
 ## Decided technical choices
 
