@@ -48,3 +48,15 @@ jobs:
       - run: pip install -r services/${{ matrix.service }}/requirements.txt
       - run: pytest tests
         working-directory: services/${{ matrix.service }}
+
+  e2e:
+    # First real `docker compose up` E2E: brings up the full 8-container stack
+    # and drives the credential-free fixture backfill through
+    # Kafka -> message-consumer -> MongoDB -> endpoint-server. GitHub-hosted
+    # ubuntu runners ship Docker and Compose v2, so no extra setup is needed.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose version
+      - name: Run end-to-end smoke test
+        run: ./scripts/e2e_smoke.sh
