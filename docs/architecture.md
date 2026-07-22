@@ -42,7 +42,9 @@ ETHERSCAN_HISTORICAL_LAST_BLOCK]` in batches of
 `ETHERSCAN_HISTORICAL_BATCH_SIZE` blocks. **Input:** Etherscan API.
 **Output:** one Kafka message per transaction on `KAFKA_TOPIC`, shaped per
 `TransactionMessage` (see [message-schema.md](message-schema.md)), with
-`source="historical"`.
+`source="historical"`. When `ETHERSCAN_API_KEY` is unset, it publishes a bundled
+recorded Etherscan response instead, keeping the source-to-Kafka path runnable
+without external credentials. With a key set, it uses Etherscan's V2 API.
 
 ### transactions-realtime
 Subscribes to new transactions for the same contract via an Infura

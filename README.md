@@ -23,11 +23,12 @@ message and MongoDB document shapes.
 ## Status
 
 This repository contains the monorepo foundation, infra wiring, contracts,
-and CI. `message-consumer` implements Kafka consumption, fee enrichment,
-and idempotent MongoDB upserts. `endpoint-server` reads those documents
-with filter and pagination support, while `db-indexing-sidecar` creates the
-required indexes. The producer services remain scaffold stubs for later
-increments.
+and CI. `transactions-historical` publishes Etherscan backfills (or a bundled
+credential-free fixture) to Kafka. `message-consumer` implements Kafka
+consumption, fee enrichment, and idempotent MongoDB upserts. `endpoint-server`
+reads those documents with filter and pagination support, while
+`db-indexing-sidecar` creates the required indexes. The realtime producer
+remains a scaffold stub.
 
 ## Repository layout
 
@@ -56,15 +57,17 @@ was chosen over duplicated definitions.
 ## Running it
 
 ```bash
-cp .env.example .env   # fill in ETHERSCAN_API_KEY / INFURA_PROJECT_ID when you have them
+cp .env.example .env   # external API keys are optional for the historical fixture mode
 docker compose up
 ```
 
 This brings up Zookeeper, Kafka, MongoDB, and all five services.
-`db-indexing-sidecar` runs its indexing job and exits `0` by design; every
-other service stays up. `endpoint-server` is reachable at
-`http://localhost:8000` (`/health`, `/transactions`, `/docs`). See the
-OpenAPI docs for the transaction filter and pagination parameters.
+`db-indexing-sidecar` exits after indexing, and `transactions-historical`
+exits after its backfill is acknowledged by Kafka. With no
+`ETHERSCAN_API_KEY`, the historical producer clearly logs that it is publishing
+its bundled recorded fixture instead. `endpoint-server` is reachable at
+`http://localhost:8000` (`/health`, `/transactions`, `/docs`). See the OpenAPI
+docs for the transaction filter and pagination parameters.
 
 ## Running tests
 
