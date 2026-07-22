@@ -57,9 +57,13 @@ was chosen over duplicated definitions.
 ## Running it
 
 ```bash
-cp .env.example .env   # external API keys are optional for the historical fixture mode
 docker compose up
 ```
+
+No credentials are needed for a first run: every value in `docker-compose.yml`
+has a working default. Copy `.env.example` to `.env` only to override those or
+to plug in real `ETHERSCAN_API_KEY` / `INFURA_PROJECT_ID` values (`.env` is
+gitignored).
 
 This brings up Zookeeper, Kafka, MongoDB, and all five services.
 `db-indexing-sidecar` exits after indexing, and `transactions-historical`
@@ -68,6 +72,18 @@ exits after its backfill is acknowledged by Kafka. With no
 its bundled recorded fixture instead. `endpoint-server` is reachable at
 `http://localhost:8000` (`/health`, `/transactions`, `/docs`). See the OpenAPI
 docs for the transaction filter and pagination parameters.
+
+Kafka is reachable from the host on `localhost:29092` (its `EXTERNAL` listener)
+for ad-hoc tooling; in-network services keep using `kafka:9092` directly over
+the Compose network.
+
+### End-to-end smoke test
+
+`scripts/e2e_smoke.sh` automates the full flow: it brings the stack up, drives
+the credential-free fixture backfill through
+`Kafka -> message-consumer -> MongoDB`, and asserts the enriched result is
+served by `endpoint-server`. It needs only Docker, Docker Compose, and
+`python3`, and runs in CI as the `e2e` job.
 
 ## Running tests
 

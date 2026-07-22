@@ -14,12 +14,21 @@ services:
     depends_on:
       - zookeeper
     ports:
-      - "9092:9092"
+      # Host-side tooling connects on localhost:29092 (the EXTERNAL listener).
+      # In-network services use kafka:9092 directly over the Compose network and
+      # need no published port.
+      - "29092:29092"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      # Two listeners: INTERNAL is advertised under the Compose DNS name for
+      # in-network clients; EXTERNAL is advertised as localhost so a host client
+      # reached via the published port is not redirected to the unresolvable
+      # kafka:9092. A single kafka:9092 listener strands host-side producers.
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:29092
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     healthcheck:
       test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]

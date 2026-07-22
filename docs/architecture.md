@@ -88,6 +88,11 @@ auto-generated `/docs` page are also available. **Input:** MongoDB.
 
 - **Kafka client:** `confluent-kafka` (librdkafka-backed), matching the
   `confluentinc` images used for Kafka/Zookeeper in `docker-compose.yml`.
+- **Kafka listeners:** the broker advertises two listeners - `INTERNAL`
+  (`kafka:9092`) for in-network services and `EXTERNAL` (`localhost:29092`,
+  published to the host) for host-side tooling. A single `kafka:9092` listener
+  would strand any host client, which is redirected to a name it cannot
+  resolve.
 - **Mongo client:** `pymongo`.
 - **Shared schema:** a single installable package (`shared/eth_tx_shared`)
   rather than duplicated dataclasses per service - see
