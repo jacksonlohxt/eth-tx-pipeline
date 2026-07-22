@@ -8,7 +8,7 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 - Test/lint a single service: `cd services/<name> && pip install -r ../../requirements-dev.txt && pip install -e ../../shared && pip install -r requirements.txt && pytest`. Lint everything with `ruff check services shared` from the repo root (ruff config is in the root `pyproject.toml`).
 - The full stack has been validated with a live `docker compose up` (all 8 containers healthy, fixture backfill flowing source->Kafka->consumer->Mongo->API). Re-run/regress it with `scripts/e2e_smoke.sh` (also the CI `e2e` job); it needs only Docker + `python3`. On a machine without a container runtime (e.g. bare macOS), install one first - `colima` provides the Linux VM `docker` needs.
 - Kafka advertises two listeners: `INTERNAL` (`kafka:9092`) for in-network services and `EXTERNAL` (`localhost:29092`, the published port) for host-side tooling. Point host Kafka clients at `localhost:29092`, not `9092`.
-- `transactions-historical`, `message-consumer`, `endpoint-server`, and `db-indexing-sidecar` are implemented. The realtime producer remains an intentional stub; see `README.md` for current status.
+- All five services are implemented. `transactions-realtime` requires `INFURA_PROJECT_ID` at runtime; its websocket, polling fallback, and reconnect paths are covered without live credentials by mocked tests in `services/transactions-realtime/tests/`.
 
 ## Maintaining this file
 
