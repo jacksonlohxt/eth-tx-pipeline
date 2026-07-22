@@ -22,10 +22,11 @@ message and MongoDB document shapes.
 
 ## Status
 
-This repository currently contains the **foundation**: the full monorepo
-scaffold, infra wiring, contracts, and CI - with every service running as a
-minimal stub (connects to nothing yet, logs, stays alive). The real
-ingestion/enrichment/API logic is built out on top of this scaffold.
+This repository contains the monorepo foundation, infra wiring, contracts,
+and CI. `message-consumer` implements Kafka consumption, fee enrichment,
+and idempotent MongoDB upserts, while `db-indexing-sidecar` creates the
+required indexes. The producer services and API data endpoints remain
+scaffold stubs for later increments.
 
 ## Repository layout
 
