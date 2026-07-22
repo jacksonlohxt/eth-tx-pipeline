@@ -37,7 +37,7 @@ def index_specs() -> list[tuple[str, int]]:
 
 
 def main() -> None:
-    mongodb_url = os.environ.get("MONGODB_URL", "mongodb://localhost:27017")
+    mongodb_url = os.environ.get("MONGODB_URL", "mongodb://localhost:27017/eth_tx_pipeline")
     logger.info("config: mongodb_url=%s", mongodb_url)
 
     client = MongoClient(mongodb_url, serverSelectionTimeoutMS=10_000)
