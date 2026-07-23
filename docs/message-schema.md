@@ -76,7 +76,16 @@ The document's `_id` is set to `tx_hash`, making writes naturally
 idempotent under at-least-once Kafka delivery (re-processing the same
 transaction overwrites the same document instead of duplicating it).
 
-Example:
+**`value_wei` and `gas_price_wei` are stored as decimal strings**, not BSON
+ints: BSON caps integers at signed int64 (2^63-1), which real mainnet wei
+values can exceed (`EnrichedTransaction.to_mongo_document`,
+`MONGO_LARGE_INT_FIELDS` in `shared/eth_tx_shared/schema.py`). The Kafka
+`TransactionMessage` payload is unaffected (`json.dumps` handles
+arbitrary-precision ints), and `endpoint-server`'s `/transactions` response
+parses these two fields back to JSON integers, so the wire/API contract stays
+numeric end to end - only the raw Mongo document uses strings.
+
+Example (as stored in Mongo):
 
 ```json
 {
@@ -86,8 +95,8 @@ Example:
   "block_timestamp": 1693526400,
   "from_address": "0x1111111111111111111111111111111111111111",
   "to_address": "0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640",
-  "value_wei": 0,
-  "gas_price_wei": 20000000000,
+  "value_wei": "0",
+  "gas_price_wei": "20000000000",
   "gas_used": 150000,
   "contract_address": "0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640",
   "source": "historical",

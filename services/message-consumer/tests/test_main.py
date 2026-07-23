@@ -2,6 +2,7 @@ from collections import deque
 
 import mongomock
 import pytest
+from confluent_kafka import KafkaError
 from eth_tx_shared.schema import TransactionMessage
 from src.main import Settings, consume_messages
 
@@ -17,6 +18,22 @@ class FakeKafkaMessage:
         return None
 
 
+class FakeKafkaErrorMessage:
+    """Mimics a poll() result carrying a Kafka-level error (no message value)."""
+
+    def __init__(self, code: int):
+        self._code = code
+
+    def value(self):
+        return None
+
+    def error(self):
+        return self
+
+    def code(self):
+        return self._code
+
+
 class InMemoryKafka:
     def __init__(self):
         self.messages = deque()
@@ -24,6 +41,9 @@ class InMemoryKafka:
 
     def publish(self, message: TransactionMessage) -> None:
         self.messages.append(FakeKafkaMessage(message.to_json().encode()))
+
+    def publish_error(self, code: int) -> None:
+        self.messages.append(FakeKafkaErrorMessage(code))
 
     def poll(self, timeout: float):
         del timeout
@@ -75,8 +95,8 @@ def test_transaction_flows_from_kafka_through_enrichment_to_mongo_upsert():
         "block_timestamp": transaction.block_timestamp,
         "from_address": transaction.from_address,
         "to_address": transaction.to_address,
-        "value_wei": transaction.value_wei,
-        "gas_price_wei": transaction.gas_price_wei,
+        "value_wei": str(transaction.value_wei),
+        "gas_price_wei": str(transaction.gas_price_wei),
         "gas_used": transaction.gas_used,
         "contract_address": transaction.contract_address,
         "source": transaction.source,
@@ -101,6 +121,84 @@ def test_transaction_flows_from_kafka_through_enrichment_to_mongo_upsert():
         "2026-07-13T00:01:00Z"
     )
     assert len(kafka.committed) == 2
+
+
+def test_consume_messages_persists_wei_value_exceeding_bson_int64():
+    """Regression for the OverflowError surfaced by live mainnet data (Defect B).
+
+    BSON caps integers at signed int64 (2^63-1); this value_wei is ~2^70, well
+    beyond that. Prior to the fix, replace_one's BSON encoding raised
+    ``OverflowError: MongoDB can only handle up to 8-byte ints``.
+    """
+    huge_value_wei = 2**70
+    transaction = TransactionMessage(
+        tx_hash="0xoverflow",
+        block_number=18_000_042,
+        block_timestamp=1_693_526_400,
+        from_address="0x1111111111111111111111111111111111111111",
+        to_address="0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640",
+        value_wei=huge_value_wei,
+        gas_price_wei=20_000_000_000,
+        gas_used=150_000,
+        contract_address="0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640",
+        source="historical",
+        ingested_at="2026-07-13T00:00:00Z",
+    )
+    kafka = InMemoryKafka()
+    mongo_client = mongomock.MongoClient("mongodb://localhost:27017/eth_tx_pipeline")
+    collection = mongo_client.get_default_database()["transactions"]
+
+    kafka.publish(transaction)
+    assert (
+        consume_messages(
+            kafka,
+            collection,
+            eth_usd_exchange_rate=3_290.0,
+            timestamp_factory=lambda: "2026-07-13T00:00:05Z",
+            max_messages=1,
+        )
+        == 1
+    )
+
+    document = collection.find_one({"_id": transaction.tx_hash})
+    assert document["value_wei"] == str(huge_value_wei)
+    assert int(document["value_wei"]) == huge_value_wei
+
+
+def test_consume_messages_treats_unknown_topic_as_retriable():
+    """Regression for Defect A: a cold-start consumer subscribing before any
+    producer has created the topic sees UNKNOWN_TOPIC_OR_PART. It must keep
+    polling (like _PARTITION_EOF) instead of raising and exiting.
+    """
+    transaction = TransactionMessage(
+        tx_hash="0xcoldstart",
+        block_number=18_000_042,
+        block_timestamp=1_693_526_400,
+        from_address="0x1111111111111111111111111111111111111111",
+        to_address="0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640",
+        value_wei=0,
+        gas_price_wei=20_000_000_000,
+        gas_used=150_000,
+        contract_address="0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640",
+        source="historical",
+        ingested_at="2026-07-13T00:00:00Z",
+    )
+    kafka = InMemoryKafka()
+    kafka.publish_error(KafkaError.UNKNOWN_TOPIC_OR_PART)
+    kafka.publish(transaction)
+    mongo_client = mongomock.MongoClient("mongodb://localhost:27017/eth_tx_pipeline")
+    collection = mongo_client.get_default_database()["transactions"]
+
+    processed = consume_messages(
+        kafka,
+        collection,
+        eth_usd_exchange_rate=3_290.0,
+        timestamp_factory=lambda: "2026-07-13T00:00:05Z",
+        max_messages=1,
+    )
+
+    assert processed == 1
+    assert collection.find_one({"_id": transaction.tx_hash}) is not None
 
 
 def test_settings_default_mongodb_url_includes_database_path():
