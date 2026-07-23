@@ -23,6 +23,13 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
+# BSON caps integers at signed int64 (2^63-1). Real mainnet value_wei/gas_price_wei
+# can exceed that, so these fields are serialized as decimal strings in the Mongo
+# document (see EnrichedTransaction.to_mongo_document) and parsed back to int by
+# endpoint-server's response model. The Kafka JSON payload is unaffected since
+# json.dumps handles arbitrary-precision ints natively.
+MONGO_LARGE_INT_FIELDS: tuple[str, ...] = ("value_wei", "gas_price_wei")
+
 
 @dataclass(frozen=True, slots=True)
 class TransactionMessage:
@@ -97,4 +104,6 @@ class EnrichedTransaction:
         """Mongo document keyed by ``_id=tx_hash`` for natural idempotency."""
         doc = dataclasses.asdict(self)
         doc["_id"] = doc["tx_hash"]
+        for field in MONGO_LARGE_INT_FIELDS:
+            doc[field] = str(doc[field])
         return doc

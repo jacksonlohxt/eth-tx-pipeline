@@ -100,7 +100,11 @@ def consume_messages(
 
         error = kafka_message.error()
         if error is not None:
-            if error.code() == KafkaError._PARTITION_EOF:
+            if error.code() in (KafkaError._PARTITION_EOF, KafkaError.UNKNOWN_TOPIC_OR_PART):
+                # UNKNOWN_TOPIC_OR_PART is expected on cold start when this consumer
+                # subscribes before any producer has created the topic yet; treat it
+                # like _PARTITION_EOF and keep polling until the topic appears.
+                logger.info("kafka error %s, continuing to poll", error.code())
                 continue
             raise KafkaException(error)
 

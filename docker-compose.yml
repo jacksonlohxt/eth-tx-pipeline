@@ -16,8 +16,8 @@ services:
     ports:
       # Host-side tooling connects on localhost:29092 (the EXTERNAL listener).
       # In-network services use kafka:9092 directly over the Compose network and
-      # need no published port.
-      - "29092:29092"
+      # need no published port. Loopback-only: host tooling never needs LAN access.
+      - "127.0.0.1:29092:29092"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
@@ -40,7 +40,7 @@ services:
   mongo:
     image: mongo:7
     ports:
-      - "27017:27017"
+      - "127.0.0.1:27017:27017"
     volumes:
       - mongo-data:/data/db
     healthcheck:
@@ -101,7 +101,7 @@ services:
       mongo:
         condition: service_healthy
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
       MONGODB_URL: ${MONGODB_URL:-mongodb://mongo:27017/eth_tx_pipeline}
 

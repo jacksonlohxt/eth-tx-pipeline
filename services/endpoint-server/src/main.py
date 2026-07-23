@@ -9,8 +9,9 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Annotated, Any
 
+from eth_tx_shared.schema import MONGO_LARGE_INT_FIELDS
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pymongo import ASCENDING, MongoClient
 from pymongo.collection import Collection
 
@@ -59,6 +60,12 @@ class EnrichedTransactionResponse(BaseModel):
     fee_usd: float
     eth_usd_exchange_rate: float
     enriched_at: str
+
+    @field_validator(*MONGO_LARGE_INT_FIELDS, mode="before")
+    @classmethod
+    def _parse_mongo_large_int(cls, value: str | int) -> int:
+        """Mongo stores these as decimal strings to dodge BSON's int64 cap."""
+        return int(value)
 
 
 class TransactionPage(BaseModel):

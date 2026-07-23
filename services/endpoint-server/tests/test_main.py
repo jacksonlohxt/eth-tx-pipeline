@@ -203,3 +203,43 @@ def test_response_model_tracks_shared_enriched_transaction_schema():
 
 def test_settings_default_mongodb_url_includes_database_path():
     assert Settings.from_env({}).mongodb_url == "mongodb://localhost:27017/eth_tx_pipeline"
+
+
+def test_transaction_with_wei_beyond_bson_int64_round_trips_as_integer(collection):
+    """Regression for Defect B: Mongo stores value_wei/gas_price_wei as strings
+    (BSON caps ints at signed int64), but the API must still return integers.
+    """
+    huge_value_wei = 2**70
+    huge_gas_price_wei = 2**64
+    document = EnrichedTransaction(
+        tx_hash="0xoverflow",
+        block_number=200,
+        block_timestamp=2_000,
+        from_address=ADDRESS_A,
+        to_address=CONTRACT,
+        value_wei=huge_value_wei,
+        gas_price_wei=huge_gas_price_wei,
+        gas_used=150_000,
+        contract_address=CONTRACT,
+        source="realtime",
+        ingested_at="2026-07-13T00:00:00Z",
+        fee_eth=0.003,
+        fee_usd=9.87,
+        eth_usd_exchange_rate=3_290.0,
+        enriched_at="2026-07-13T00:00:05Z",
+    ).to_mongo_document()
+    assert document["value_wei"] == str(huge_value_wei)
+    collection.insert_one(document)
+
+    app.dependency_overrides[get_transactions_collection] = lambda: collection
+    try:
+        with TestClient(app) as test_client:
+            response = test_client.get("/transactions", params={"block_number_from": 200})
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    items = response.json()["items"]
+    assert len(items) == 1
+    assert items[0]["value_wei"] == huge_value_wei
+    assert items[0]["gas_price_wei"] == huge_gas_price_wei
